@@ -9,6 +9,7 @@ import axios from "axios";
 import { WebSocketServer } from 'ws';
 import { useServer } from 'graphql-ws/lib/use/ws';
 import { PubSub } from 'graphql-subscriptions';
+import e from "express";
 
 const port = 3000;
 
@@ -19,10 +20,18 @@ function getAuthorizationHeader(req) {
     return headers['authorization'];
 }
 
+function errorHandler(error) {
+    const errorReason = error.response?.data?.reason;
+    throw new Error(`${errorReason}`);
+}
+
 const typeDefs = `
-    type Query {
-        foo: String!
-        check: CheckResponse!
+    type Ready {
+        ready: Boolean!
+    }
+    
+    type Result {
+        result: String!
     }
     
     type CheckResponse {
@@ -33,6 +42,20 @@ const typeDefs = `
         token: String!
     }
     
+    type ReadyResponse {
+        message: String!
+    }
+    
+    type ShakeResponse {
+        message: String!
+    }
+    
+    input GetResult_input {
+        room_id: String!
+        score: Int!
+        user_id: String!
+    }
+     
     input LoginUser_input {
         email: String!
         password: String!
@@ -44,13 +67,27 @@ const typeDefs = `
         password: String!
     }
     
+    input ShakePower_input {
+        power: Int!
+    }
+    
+    type Query {
+        foo: String!
+        check: CheckResponse!
+        get_ready: Ready!
+        get_result(input: GetResult_input): Result!
+    }
+    
     type Mutation {
         post_login(input: LoginUser_input): Response
         post_register(input: RegisterUser_input): Response
+        post_ready: ReadyResponse
+        post_shake(input: ShakePower_input): ShakeResponse
         scheduleOperation(name: String!): String!
     }
     type Subscription {
         operationFinished: Operation!
+        post_matching: String!
     }
 
     type Operation {
@@ -80,8 +117,7 @@ const resolvers = {
                 const response = await axios.post(vaporUrl + 'login', input);
                 return { token: response.data.token };
             } catch (error) {
-                console.error('Error connecting to /login endpoint:', error);
-                throw new Error(error.response?.data?.message || 'Failed to login');
+                errorHandler(error);
             }
         },
         async post_register(_, { input }) {
@@ -89,8 +125,23 @@ const resolvers = {
                 const response = await axios.post(vaporUrl + 'register', input);
                 return { token: response.data.token };
             } catch (error) {
-                console.error('Error connecting to /register endpoint:', error);
-                throw new Error(error.response?.data?.message || 'Failed to register');
+                errorHandler(error);
+            }
+        },
+        async post_ready(_, __) {
+            try {
+                const response = await axios.post(vaporUrl + 'ready');
+                return { message: response.data.message };
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
+        async post_shake(_, { input }) {
+            try {
+                const response = await axios.post(vaporUrl + 'shake', input);
+                return { message: response.data.message };
+            } catch (error) {
+                errorHandler(error);
             }
         }
     },
@@ -105,9 +156,33 @@ const resolvers = {
                 });
                 return { success: 'True', user: response.data.user };
             } catch (error) {
-                console.log(authorization);
-                //console.error('Error connecting to /check endpoint:', error);
-                throw new Error(error.response?.data?.message || 'Failed to check');
+                errorHandler(error);
+            }
+        },
+        async get_ready(_, __, { req }) {
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const response = await axios.get(vaporUrl + 'ready', {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                return {ready: response.data.ready};
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
+        async get_result(_, { input }, { req }) {
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const response = await axios.get(vaporUrl + 'result', {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                return {result: response.data.result};
+            } catch (error) {
+                errorHandler(error);
             }
         }
     },
