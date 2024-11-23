@@ -27,7 +27,7 @@ function errorHandler(error) {
 
 const typeDefs = `
     type Ready {
-        ready: Boolean!
+        is_ready: Boolean!
     }
     
     type Result {
@@ -51,7 +51,17 @@ const typeDefs = `
     }
     
     type UserID {
-        userid: String!
+        user_id: String!
+    }
+    
+    type RoomID {
+        room_id: String!
+    }
+    
+    type MatchStatus {
+        user_count: Int
+        is_matched: Boolean
+        room_id: String 
     }
     
     input GetResult_input {
@@ -78,17 +88,15 @@ const typeDefs = `
     type Query {
         foo: String!
         check: CheckResponse!
-        get_ready: Ready!
-        get_result(user_id: String!, room_id: String!, score: Int!): Result!
         get_userID: UserID!
-    }
+    }   
     
     type Mutation {
         post_login(email: String!, password: String!): Response
         post_register(email: String!, name: String!, password: String!): Response
-        post_ready: ReadyResponse
-        post_shake(power: Int!): ShakeResponse
         scheduleOperation(name: String!): String!
+        post_matching(is_leave: Boolean!): MatchStatus 
+        post_result(room_id: String!, score: Int!): Result
     }
     type Subscription {
         operationFinished: Operation!
@@ -126,28 +134,39 @@ const resolvers = {
                 errorHandler(error);
             }
         },
+        async post_matching(_ , { is_leave }, { req }){
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const input = { is_leave };
+                const response = await axios.post(vaporUrl + 'matching', input, {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                return { user_count: response.data.user_count, is_matched: response.data.is_matched, room_id: response.data.room_id };
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
         async post_register(_, { email, name, password }) {
             try {
-                const input = { email, name, password };
+                const input = {email, name, password};
                 const response = await axios.post(vaporUrl + 'register', input);
-                return { token: response.data.token };
+                return {token: response.data.token};
             } catch (error) {
                 errorHandler(error);
             }
         },
-        async post_ready(_, __) {
+        async post_result(_, { room_id, score }, { req }) {
+            const authorization = getAuthorizationHeader(req);
             try {
-                const response = await axios.post(vaporUrl + 'ready');
-                return { message: response.data.message };
-            } catch (error) {
-                errorHandler(error);
-            }
-        },
-        async post_shake(_, { power }) {
-            try {
-                const input = { power };
-                const response = await axios.post(vaporUrl + 'shake', input);
-                return { message: response.data.message };
+                const input = { room_id, score };
+                const response = await axios.post(vaporUrl + 'result', input, {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    },
+                });
+                return {result: response.data.result};
             } catch (error) {
                 errorHandler(error);
             }
@@ -175,38 +194,11 @@ const resolvers = {
                         'Authorization': " Bearer " + authorization
                     }
                 });
-                return {userid: response.data.user_id};
+                return {user_id: response.data.user_id};
             } catch (error) {
                 errorHandler(error);
             }
         },
-        async get_ready(_, __, { req }) {
-            const authorization = getAuthorizationHeader(req);
-            try {
-                const response = await axios.get(vaporUrl + 'ready', {
-                    headers: {
-                        'Authorization': " Bearer " + authorization
-                    }
-                });
-                return {ready: response.data.ready};
-            } catch (error) {
-                errorHandler(error);
-            }
-        },
-        async get_result(_, { user_id, room_id, score }, { req }) {
-            const authorization = getAuthorizationHeader(req);
-            try {
-                const input = { user_id, room_id, score };
-                const response = await axios.get(vaporUrl + 'result', {
-                    headers: {
-                        'Authorization': " Bearer " + authorization
-                    },
-                }, input);
-                return {result: response.data.result};
-            } catch (error) {
-                errorHandler(error);
-            }
-        }
     },
     Subscription: {
         operationFinished: {
