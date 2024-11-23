@@ -50,6 +50,10 @@ const typeDefs = `
         message: String!
     }
     
+    type UserID {
+        userid: String!
+    }
+    
     input GetResult_input {
         room_id: String!
         score: Int!
@@ -75,14 +79,15 @@ const typeDefs = `
         foo: String!
         check: CheckResponse!
         get_ready: Ready!
-        get_result(input: GetResult_input): Result!
+        get_result(user_id: String!, room_id: String!, score: Int!): Result!
+        get_userID: UserID!
     }
     
     type Mutation {
-        post_login(input: LoginUser_input): Response
-        post_register(input: RegisterUser_input): Response
+        post_login(email: String!, password: String!): Response
+        post_register(email: String!, name: String!, password: String!): Response
         post_ready: ReadyResponse
-        post_shake(input: ShakePower_input): ShakeResponse
+        post_shake(power: Int!): ShakeResponse
         scheduleOperation(name: String!): String!
     }
     type Subscription {
@@ -112,16 +117,18 @@ const resolvers = {
             mockLongLastingOperation(name);
             return `Operation: ${name} scheduled!`;
         },
-        async post_login(_, { input }) {
+        async post_login(_, { email, password }) {
             try {
+                const input = { email, password };
                 const response = await axios.post(vaporUrl + 'login', input);
                 return { token: response.data.token };
             } catch (error) {
                 errorHandler(error);
             }
         },
-        async post_register(_, { input }) {
+        async post_register(_, { email, name, password }) {
             try {
+                const input = { email, name, password };
                 const response = await axios.post(vaporUrl + 'register', input);
                 return { token: response.data.token };
             } catch (error) {
@@ -136,8 +143,9 @@ const resolvers = {
                 errorHandler(error);
             }
         },
-        async post_shake(_, { input }) {
+        async post_shake(_, { power }) {
             try {
+                const input = { power };
                 const response = await axios.post(vaporUrl + 'shake', input);
                 return { message: response.data.message };
             } catch (error) {
@@ -159,6 +167,19 @@ const resolvers = {
                 errorHandler(error);
             }
         },
+        async get_userID(_, __, { req }) {
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const response = await axios.get(vaporUrl + 'user', {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                return {userid: response.data.user_id};
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
         async get_ready(_, __, { req }) {
             const authorization = getAuthorizationHeader(req);
             try {
@@ -172,14 +193,15 @@ const resolvers = {
                 errorHandler(error);
             }
         },
-        async get_result(_, { input }, { req }) {
+        async get_result(_, { user_id, room_id, score }, { req }) {
             const authorization = getAuthorizationHeader(req);
             try {
+                const input = { user_id, room_id, score };
                 const response = await axios.get(vaporUrl + 'result', {
                     headers: {
                         'Authorization': " Bearer " + authorization
-                    }
-                });
+                    },
+                }, input);
                 return {result: response.data.result};
             } catch (error) {
                 errorHandler(error);
