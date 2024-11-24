@@ -62,6 +62,12 @@ const typeDefs = `
         user_count: Int
         is_matched: Boolean
         room_id: String 
+        start_time: String
+        setuna_time: String
+    }
+    
+    type diffTime {
+        difftime: String
     }
     
     input GetResult_input {
@@ -89,6 +95,7 @@ const typeDefs = `
         foo: String!
         check: CheckResponse!
         get_userID: UserID!
+        get_rooms: [String]
     }   
     
     type Mutation {
@@ -97,7 +104,9 @@ const typeDefs = `
         scheduleOperation(name: String!): String!
         post_matching(is_leave: Boolean!): MatchStatus 
         post_result(room_id: String!, score: Int!): Result
+        post_ready(room_id: String!): diffTime
     }
+    
     type Subscription {
         operationFinished: Operation!
         post_matching: String!
@@ -143,7 +152,22 @@ const resolvers = {
                         'Authorization': " Bearer " + authorization
                     }
                 });
-                return { user_count: response.data.user_count, is_matched: response.data.is_matched, room_id: response.data.room_id };
+                return { user_count: response.data.user_count, is_matched: response.data.is_matched, room_id: response.data.room_id, start_time: response.data.start_time, setuna_time: response.data.setuna_time };
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
+        async post_ready(_, { room_id }, { req }) {
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const input = { room_id };
+                const response = await axios.post(vaporUrl + 'ready', input, {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                console.log(response.data.difftime);
+                return { difftime: response.data.difftime };
             } catch (error) {
                 errorHandler(error);
             }
@@ -182,6 +206,15 @@ const resolvers = {
                     }
                 });
                 return { success: 'True', user: response.data.user };
+            } catch (error) {
+                errorHandler(error);
+            }
+        },
+        async get_rooms() {
+            try {
+                const response = await axios.get(vaporUrl + 'rooms');
+                // Assuming `rooms` is an array of objects with a `room_id` field.
+                return response.data;
             } catch (error) {
                 errorHandler(error);
             }
