@@ -105,6 +105,7 @@ const typeDefs = `
         post_matching(is_leave: Boolean!): MatchStatus 
         post_result(room_id: String!, score: Int!): Result
         post_ready(room_id: String!): diffTime
+        post_ranking(room_id: String!): Result
     }
     
     type Subscription {
@@ -133,6 +134,20 @@ const resolvers = {
         scheduleOperation(_, { name }) {
             mockLongLastingOperation(name);
             return `Operation: ${name} scheduled!`;
+        },
+        async post_ranking(_, { room_id }, { req }) {
+            const authorization = getAuthorizationHeader(req);
+            try {
+                const input = { room_id };
+                const response = await axios.post(vaporUrl + 'ranking', input, {
+                    headers: {
+                        'Authorization': " Bearer " + authorization
+                    }
+                });
+                return { result: response.data.result };
+            } catch (error) {
+                errorHandler(error);
+            }
         },
         async post_login(_, { email, password }) {
             try {
